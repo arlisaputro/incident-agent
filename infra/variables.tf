@@ -31,3 +31,15 @@ variable "key_pair_name" {
   description = "EC2 key pair name for SSH access"
   type        = string
 }
+
+variable "db_username" {
+  description = "PostgreSQL master username"
+  type        = string
+  default     = "incident_admin"
+}
+
+variable "db_password" {
+  description = "PostgreSQL master password"
+  type        = string
+  sensitive   = true
+}

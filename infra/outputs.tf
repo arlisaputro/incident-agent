@@ -22,3 +22,13 @@ output "streamlit_url" {
   description = "Streamlit app URL"
   value       = "http://${aws_instance.app.public_ip}:8501"
 }
+
+output "rds_endpoint" {
+  description = "RDS PostgreSQL endpoint"
+  value       = aws_db_instance.postgres.endpoint
+}
+
+output "rds_db_name" {
+  description = "RDS database name"
+  value       = aws_db_instance.postgres.db_name
+}
