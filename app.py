@@ -1,5 +1,6 @@
 import streamlit as st
 from database import create_ticket, get_all_tickets
+from bedrock_agent import analyze_incident
 
 st.set_page_config(page_title="Incident Intelligence Agent", page_icon="🚨", layout="wide")
 st.title("🚨 Incident Intelligence Agent")
@@ -37,3 +38,16 @@ else:
         with st.expander(f"{icon} [{t['severity']}] {t['title']} — {t['service_affected']}"):
             st.text(f"ID: {t['id']}  |  Status: {t['status']}  |  Created: {t['created_at']}")
             st.markdown(f"**Description:**\n\n{t['description']}")
+
+            # AI Analysis Button
+            if st.button(f"🧠 Analyze with AI", key=f"analyze_{t['id']}"):
+                with st.spinner("Analyzing incident with Amazon Bedrock..."):
+                    try:
+                        analysis = analyze_incident(
+                            t["title"], t["severity"], t["service_affected"], t["description"]
+                        )
+                        st.markdown("---")
+                        st.markdown("### 🤖 AI Analysis")
+                        st.markdown(analysis)
+                    except Exception as e:
+                        st.error(f"AI Analysis failed: {str(e)}")
