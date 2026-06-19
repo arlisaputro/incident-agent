@@ -14,8 +14,10 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
                               S3 (Runbooks/SOP) + DynamoDB (Known Issues)
                                               ↕
                                   Bedrock Knowledge Base (RAG)
+                                              ↕
+                                  Datadog MCP (Monitors/Metrics/Logs)
                                               ↓
-                                  Datadog LLM Observability
+                                  Datadog LLM Observability (Trace)
 ```
 
 ### Layers:
@@ -23,7 +25,7 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
 2. **Ticket Storage** – Amazon RDS PostgreSQL (production-grade DB)
 3. **AI Layer** – Amazon Bedrock Claude 3 Sonnet (classification, RCA, recommendation)
 4. **RAG Layer** – Bedrock Knowledge Base (S3) + DynamoDB (known issues)
-5. **Observability** – Datadog (latency, token usage, cost, prompt trace)
+5. **Observability Layer** – Datadog MCP (real-time context) + LLM Obs (tracing)
 
 ---
 
@@ -33,11 +35,15 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
 .
 ├── app.py                          # Streamlit UI + AI analyze button
 ├── database.py                     # PostgreSQL helper (psycopg2)
-├── bedrock_agent.py                # Bedrock Claude 3 invocation + RAG context
+├── bedrock_agent.py                # Bedrock Claude 3 + RAG + Datadog MCP context
 ├── knowledge_base.py               # RAG retrieval (Bedrock KB + DynamoDB)
+├── observability.py                # ddtrace LLM Observability (traces, spans)
 ├── requirements.txt                # Python dependencies
 ├── architecture-diagram.drawio     # Draw.io architecture diagram
 ├── detailsolution.txt              # Architecture detail (Mermaid)
+├── mcp/                            # Datadog MCP integration
+│   ├── __init__.py
+│   └── datadog_client.py           # Query Datadog API (monitors, metrics, logs)
 ├── docs/                           # Knowledge Base documents (upload to S3)
 │   ├── runbook-api-gateway.md
 │   ├── runbook-payment-service.md
@@ -60,6 +66,7 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
 - EC2 Key Pair sudah dibuat di AWS Console (region ap-southeast-1)
 - Public IP kamu (jalankan: `curl ifconfig.me`)
 - Bedrock model access enabled (Claude 3 Sonnet) di AWS Console
+- Datadog account + API Key + Application Key
 
 ---
 
@@ -114,7 +121,6 @@ Setelah selesai, catat output:
 ### Step 4: Upload Knowledge Base Documents ke S3
 
 ```bash
-# Dari local machine
 aws s3 cp docs/runbook-api-gateway.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/runbook-payment-service.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/sop-incident-management.md s3://<S3_BUCKET_NAME>/sop/
@@ -157,7 +163,25 @@ aws dynamodb put-item --table-name incident-agent-known-issues --item '{
 
 ---
 
-### Step 7: SSH ke EC2 & Deploy Application
+### Step 7: Setup Datadog
+
+#### 7a. Get API Keys
+1. Buka **Datadog Console → Organization Settings → API Keys**
+2. Create/copy **API Key**
+3. Buka **Organization Settings → Application Keys**
+4. Create/copy **Application Key**
+
+#### 7b. (Optional) Install Datadog Agent di EC2
+```bash
+DD_API_KEY=<your-api-key> DD_SITE="datadoghq.com" bash -c "$(curl -L https://install.datadoghq.com/scripts/install_script_agent7.sh)"
+```
+
+#### 7c. Configure service tags di Datadog
+Pastikan services yang di-monitor di Datadog punya tag `service:<service_name>` yang match dengan nama service di incident ticket (e.g. `service:payment-service`, `service:api-gateway`).
+
+---
+
+### Step 8: SSH ke EC2 & Deploy Application
 
 ```bash
 ssh -i ~/path/to/your-key.pem ec2-user@<EC2_PUBLIC_IP>
@@ -172,7 +196,7 @@ cd incident-agent
 pip3 install -r requirements.txt
 
 # Set environment variables
-export DB_HOST=<RDS_ENDPOINT>        # e.g. incident-agent-db.xxxxx.ap-southeast-1.rds.amazonaws.com
+export DB_HOST=<RDS_ENDPOINT>
 export DB_PORT=5432
 export DB_NAME=incident_agent
 export DB_USER=incident_admin
@@ -181,14 +205,23 @@ export AWS_REGION=ap-southeast-1
 export BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
 export KNOWLEDGE_BASE_ID=<YOUR_KB_ID>
 export DYNAMODB_TABLE=incident-agent-known-issues
+export DD_API_KEY=<YOUR_DD_API_KEY>
+export DD_APP_KEY=<YOUR_DD_APP_KEY>
+export DD_SITE=datadoghq.com
+export DD_LLMOBS_APP_NAME=incident-agent
 
-# Run Streamlit
-nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &
+# Run with Datadog tracing
+ddtrace-run streamlit run app.py --server.port 8501 --server.address 0.0.0.0
 ```
+
+> **Note:** Kalau mau run tanpa Datadog tracing (development), cukup:
+> ```bash
+> streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+> ```
 
 ---
 
-### Step 8: Akses Aplikasi
+### Step 9: Akses Aplikasi
 
 Buka browser:
 ```
@@ -197,15 +230,27 @@ http://<EC2_PUBLIC_IP>:8501
 
 ---
 
+### Step 10: Verify Datadog LLM Observability
+
+1. Buka **Datadog Console → LLM Observability**
+2. Filter by app: `incident-agent`
+3. Verify traces muncul setiap kali klik "Analyze with AI"
+4. Check: latency, token usage, prompt/response content, RAG spans
+
+---
+
 ## 🧪 How It Works (Demo Flow)
 
 1. **Create Ticket** – Isi form incident (title, severity, service, description)
-2. **Klik "🧠 Analyze with AI"** – Trigger Bedrock analysis
-3. **RAG Retrieval** – System query Knowledge Base (S3 runbooks) + DynamoDB (known issues)
-4. **AI Analysis** – Claude 3 Sonnet menganalisis dengan context dari RAG:
+2. **Klik "🧠 Analyze with AI"** – Trigger full analysis pipeline
+3. **RAG Retrieval** – Query Bedrock KB (S3 runbooks) + DynamoDB (known issues)
+4. **Datadog MCP** – Query real-time: active alerts, CPU/error metrics, recent error logs
+5. **AI Analysis** – Claude 3 Sonnet menganalisis dengan ALL context:
    - 🏷️ Classification (incident type + severity validation)
-   - 🔍 Root Cause Analysis (dengan referensi known issues)
-   - ✅ Recommendations (dengan referensi runbook steps)
+   - 🔍 Root Cause Analysis (correlate with known issues + Datadog alerts)
+   - ✅ Recommendations (reference runbook steps)
+   - 📊 Observability Insights (signal summary + monitoring suggestions)
+6. **Trace** – Full pipeline trace dikirim ke Datadog LLM Observability
 
 ---
 
@@ -225,14 +270,51 @@ http://<EC2_PUBLIC_IP>:8501
 
 ---
 
-## 💻 Local Development (tanpa AWS)
+## 📡 Datadog Integration
 
-Kalau mau test UI saja tanpa full AWS integration:
+### LLM Observability (ddtrace)
+| What's Traced | Detail |
+|---------------|--------|
+| LLM Call | Model, latency, input/output tokens, prompt/response |
+| RAG Retrieval | Duration, source (KB + DynamoDB), retrieved context |
+| MCP Query | Duration, Datadog API calls, returned context |
+
+### MCP (Real-time Context)
+| Data Source | What AI Gets |
+|-------------|-------------|
+| Monitors | Active alerts/warnings for the affected service |
+| Metrics | CPU utilization, error rate (last 30 min) |
+| Logs | Recent error logs from the service |
+
+---
+
+## 🌍 Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DB_HOST` | ✅ | RDS PostgreSQL endpoint |
+| `DB_PORT` | ✅ | PostgreSQL port (default: 5432) |
+| `DB_NAME` | ✅ | Database name (default: incident_agent) |
+| `DB_USER` | ✅ | Database username |
+| `DB_PASSWORD` | ✅ | Database password |
+| `AWS_REGION` | ✅ | AWS region (default: ap-southeast-1) |
+| `BEDROCK_MODEL_ID` | ✅ | Bedrock model ID |
+| `KNOWLEDGE_BASE_ID` | ⚡ | Bedrock KB ID (RAG won't work without this) |
+| `DYNAMODB_TABLE` | ⚡ | DynamoDB table name |
+| `DD_API_KEY` | ⚡ | Datadog API key |
+| `DD_APP_KEY` | ⚡ | Datadog Application key |
+| `DD_SITE` | ⚡ | Datadog site (default: datadoghq.com) |
+| `DD_LLMOBS_APP_NAME` | ⚡ | App name in LLM Obs (default: incident-agent) |
+
+> ✅ = required, ⚡ = required for full functionality (graceful fallback if missing)
+
+---
+
+## 💻 Local Development (tanpa AWS)
 
 ```bash
 pip install -r requirements.txt
 
-# Set minimal env (akan fallback gracefully kalau Bedrock/KB tidak available)
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_NAME=incident_agent
@@ -241,6 +323,8 @@ export DB_PASSWORD=password
 
 streamlit run app.py
 ```
+
+> AI analysis dan Datadog features akan fallback gracefully kalau credentials tidak ada.
 
 ---
 
@@ -253,7 +337,7 @@ terraform destroy
 
 ---
 
-## 📌 TODO
+## 📌 Feature Checklist
 
 - [x] Streamlit UI (incident form + ticket list)
 - [x] PostgreSQL database (RDS)
@@ -261,7 +345,8 @@ terraform destroy
 - [x] RAG Layer (Bedrock Knowledge Base + DynamoDB)
 - [x] Sample knowledge base documents
 - [x] Terraform IaC (all infrastructure)
-- [ ] Integrate Datadog LLM Observability
+- [x] Datadog LLM Observability (ddtrace)
+- [x] Datadog MCP (real-time monitors/metrics/logs context)
 - [ ] Demo script (3 min pitch)
 
 ---
