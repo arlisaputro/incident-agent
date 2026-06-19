@@ -32,3 +32,13 @@ output "rds_db_name" {
   description = "RDS database name"
   value       = aws_db_instance.postgres.db_name
 }
+
+output "bedrock_kb_role_arn" {
+  description = "IAM Role ARN for Bedrock Knowledge Base"
+  value       = aws_iam_role.bedrock_kb_role.arn
+}
+
+output "s3_bucket_arn" {
+  description = "S3 bucket ARN (for KB data source config)"
+  value       = aws_s3_bucket.knowledge.arn
+}

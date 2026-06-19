@@ -262,7 +262,58 @@ resource "aws_dynamodb_table" "known_issues" {
     type = "S"
   }
 
+  global_secondary_index {
+    name            = "service-index"
+    hash_key        = "service_name"
+    projection_type = "ALL"
+  }
+
   tags = { Name = "${var.project_name}-known-issues" }
+}
+
+# ========================
+# IAM ROLE FOR BEDROCK KNOWLEDGE BASE
+# ========================
+resource "aws_iam_role" "bedrock_kb_role" {
+  name = "${var.project_name}-bedrock-kb-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "bedrock.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "bedrock_kb_policy" {
+  name = "${var.project_name}-bedrock-kb-policy"
+  role = aws_iam_role.bedrock_kb_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.knowledge.arn,
+          "${aws_s3_bucket.knowledge.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 # ========================
