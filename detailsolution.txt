@@ -1,0 +1,128 @@
+Berikut versi **AWS-style professional architecture diagram** yang lebih “hackathon-ready” (clean, enterprise, dan gampang dipresentasikan ke juri).
+
+Saya buat dalam format **Mermaid AWS Architecture style** supaya bisa langsung kamu render di Markdown / Notion / GitHub / PPT tool.
+
+---
+
+# 🏗️ AWS x Datadog – Incident Intelligence Agent (Professional Architecture)
+
+```mermaid
+flowchart TB
+
+%% ======================
+%% USER LAYER
+%% ======================
+subgraph U[User Layer]
+    A[Streamlit Web UI]
+end
+
+%% ======================
+%% DATA STORAGE LAYER
+%% ======================
+subgraph D1[Ticket Storage Layer]
+    B[(SQLite - Ticket DB)]
+end
+
+%% ======================
+%% AI / LLM LAYER
+%% ======================
+subgraph AI[AI & Reasoning Layer]
+    C[Amazon Bedrock - Incident Agent]
+end
+
+%% ======================
+%% KNOWLEDGE BASE LAYER (RAG)
+%% ======================
+subgraph KB[Knowledge Base (RAG)]
+    D[(Amazon S3 - RCA Docs / Runbooks / SOP)]
+    E[(DynamoDB - Known Issues / Problem DB)]
+    F[Knowledge Base Retrieval Engine]
+end
+
+%% ======================
+%% OBSERVABILITY LAYER
+%% ======================
+subgraph OBS[Observability Layer]
+    G[Datadog LLM Observability]
+    H[Trace / Latency / Cost / Token Monitoring]
+end
+
+%% ======================
+%% FLOW
+%% ======================
+A -->|Create Incident Ticket| B
+B -->|Send Ticket Context| C
+
+C -->|RAG Query| F
+F --> D
+F --> E
+
+D --> F
+E --> F
+
+F -->|Retrieved Context| C
+
+C -->|Incident Analysis / RCA / Recommendation| A
+
+C -->|Telemetry| G
+G --> H
+```
+
+---
+
+# 🎯 Cara membaca diagram ini (untuk juri)
+
+## 1. User Layer
+
+* Streamlit UI sebagai entry point incident/helpdesk
+
+## 2. Ticket Layer
+
+* SQLite menyimpan semua incident ticket (simulasi lightweight system)
+
+## 3. AI Layer (Core Intelligence)
+
+* Amazon Bedrock menjadi **Incident Agent**
+* melakukan:
+
+  * classification
+  * RCA generation
+  * recommendation
+
+## 4. RAG Layer (Knowledge Intelligence)
+
+* S3 → unstructured knowledge (runbook, SOP, RCA)
+* DynamoDB → structured knowledge (known issue, history)
+* Knowledge Base Retrieval → menyatukan konteks
+
+## 5. Observability Layer (nilai pembeda hackathon kamu 🚀)
+
+* Datadog tracking:
+
+  * latency LLM
+  * token usage
+  * cost per request
+  * trace full prompt chain
+
+---
+
+# 🔥 Upgrade agar terlihat “winning architecture”
+
+Kalau kamu mau naik level lagi di pitch:
+
+### 💡 Tambahkan label ini di diagram (optional enhancement):
+
+* “Enterprise AI Incident Copilot”
+* “RAG-powered operational intelligence system”
+* “Full LLM observability (production-grade AI)”
+
+---
+
+# 🚀 Kalau mau saya bisa bantu next step:
+
+1. versi **AWS icon diagram (lebih visual seperti AWS official whitepaper)**
+2. versi **slide PPT 1 halaman (pitch-ready)**
+3. atau **script demo 3 menit biar juri langsung paham & impressed**
+
+Tinggal bilang aja 👍
+
