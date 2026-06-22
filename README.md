@@ -120,6 +120,7 @@ bedrock_kb_role_arn = "arn:aws:iam::xxxx:role/incident-agent-bedrock-kb-role"
 cd ../  # kembali ke root project
 aws s3 cp docs/runbook-api-gateway.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/runbook-payment-service.md s3://<S3_BUCKET_NAME>/runbooks/
+aws s3 cp docs/runbook-database-infrastructure.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/sop-incident-management.md s3://<S3_BUCKET_NAME>/sop/
 ```
 
