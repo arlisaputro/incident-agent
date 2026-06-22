@@ -9,7 +9,7 @@ RAG-powered operational intelligence system dengan full LLM observability (produ
 ## 🏗️ Architecture
 
 ```
-User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Amazon Nova Pro)
+User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Nova Pro)
                                                 ↕
                                 S3 (Runbooks/SOP) via Bedrock Knowledge Base
                                                 ↕
@@ -23,8 +23,8 @@ User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Amazon Nova Pro)
 ### Layers:
 1. **User Layer** – Streamlit Web UI (incident form + ticket list + AI analysis)
 2. **Ticket Storage** – SQLite `tickets.db` (incident tickets)
-3. **AI Layer** – Amazon Bedrock Amazon Nova Pro (classification, RCA, recommendation)
-4. **RAG Layer** – Bedrock Knowledge Base (S3) + SQLite `data/known_issues.db` (known issues)
+3. **AI Layer** – Amazon Bedrock Nova Pro (classification, RCA, recommendation)
+4. **RAG Layer** – Bedrock Knowledge Base (S3) + SQLite `data/known_issues.db`
 5. **Observability Layer** – Datadog MCP (real-time context) + LLM Obs (tracing)
 
 ---
@@ -36,7 +36,7 @@ User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Amazon Nova Pro)
 ├── app.py                          # Streamlit UI + AI analyze button
 ├── database.py                     # SQLite helper (tickets.db)
 ├── known_issues_db.py              # SQLite helper (data/known_issues.db)
-├── bedrock_agent.py                # Bedrock Claude 3 + RAG + Datadog MCP context
+├── bedrock_agent.py                # Bedrock Nova Pro + RAG + Datadog MCP context
 ├── knowledge_base.py               # RAG retrieval (Bedrock KB + known issues SQLite)
 ├── observability.py                # ddtrace LLM Observability (traces, spans)
 ├── requirements.txt                # Python dependencies
@@ -61,32 +61,28 @@ User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Amazon Nova Pro)
 
 ---
 
-## 🚀 Deployment Guide (Step-by-Step)
+## 🚀 How to Deploy
 
 ### Prerequisites
 
-- AWS CLI configured (`aws configure`)
-- Terraform >= 1.5.0 installed
-- EC2 Key Pair sudah dibuat di AWS Console (region ap-southeast-1)
-- Public IP kamu (jalankan: `curl ifconfig.me`)
-- Bedrock model access enabled (Amazon Nova Pro) di AWS Console
-- Datadog account + API Key + Application Key
+| Tool | Cara Install |
+|------|-------------|
+| AWS CLI | `brew install awscli` lalu `aws configure` |
+| Terraform | `brew install terraform` |
+| EC2 Key Pair | Buat di AWS Console → EC2 → Key Pairs |
+| Bedrock Access | AWS Console → Bedrock → Model Access → Enable **Amazon Nova Pro** |
+| Datadog Account | https://www.datadoghq.com (free trial available) |
 
 ---
 
-### Step 1: Clone Repository
+### Phase 1: Provision AWS Infrastructure
 
 ```bash
+# 1. Clone repo
 git clone https://github.com/arlisaputro/incident-agent.git
-cd incident-agent
-```
+cd incident-agent/infra
 
----
-
-### Step 2: Configure Terraform Variables
-
-```bash
-cd infra
+# 2. Copy & edit config
 cp terraform.tfvars.example terraform.tfvars
 ```
 
@@ -94,122 +90,125 @@ Edit `terraform.tfvars`:
 ```hcl
 aws_region    = "ap-southeast-1"
 project_name  = "incident-agent"
-my_ip         = "103.x.x.x/32"      # hasil dari curl ifconfig.me
+my_ip         = "YOUR_IP/32"         # jalankan: curl ifconfig.me
 ami_id        = "ami-0672fd5b9210aa093"
 instance_type = "t3.small"
-key_pair_name = "your-key-pair-name"
+key_pair_name = "YOUR_KEY_PAIR"      # nama key pair di AWS
 ```
 
----
-
-### Step 3: Provision Infrastructure
-
 ```bash
+# 3. Deploy
 terraform init
 terraform plan
 terraform apply
 ```
 
-Setelah selesai, catat output:
-- `ec2_public_ip` – IP untuk SSH & akses app
-- `s3_bucket_name` – bucket untuk upload runbooks
-- `streamlit_url` – URL akses Streamlit
-- `bedrock_kb_role_arn` – IAM role untuk Bedrock Knowledge Base
+✅ **Output yang perlu dicatat:**
+```
+ec2_public_ip     = "x.x.x.x"
+s3_bucket_name    = "incident-agent-knowledge-base-xxxxxxxx"
+streamlit_url     = "http://x.x.x.x:8501"
+bedrock_kb_role_arn = "arn:aws:iam::xxxx:role/incident-agent-bedrock-kb-role"
+```
 
 ---
 
-### Step 4: Upload Knowledge Base Documents ke S3
+### Phase 2: Setup Bedrock Knowledge Base
 
 ```bash
+# 1. Upload docs ke S3 (dari local machine)
+cd ../  # kembali ke root project
 aws s3 cp docs/runbook-api-gateway.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/runbook-payment-service.md s3://<S3_BUCKET_NAME>/runbooks/
 aws s3 cp docs/sop-incident-management.md s3://<S3_BUCKET_NAME>/sop/
 ```
 
----
-
-### Step 5: Create Bedrock Knowledge Base (AWS Console)
-
-1. Buka **Bedrock Console → Knowledge Bases → Create**
-2. Name: `incident-agent-kb`
-3. IAM Role: pilih `incident-agent-bedrock-kb-role` (dari terraform)
-4. Data source: S3 bucket (dari output `s3_bucket_name`)
-5. Embedding model: **Titan Embedding V2**
-6. Vector store: pilih **Quick create** (managed OpenSearch Serverless)
-7. Create → Sync data source
-8. Catat **Knowledge Base ID**
-
----
-
-### Step 6: Setup Datadog
-
-#### 6a. Get API Keys
-1. Buka **Datadog Console → Organization Settings → API Keys**
-2. Create/copy **API Key**
-3. Buka **Organization Settings → Application Keys**
-4. Create/copy **Application Key**
-
-#### 6b. (Optional) Install Datadog Agent di EC2
-```bash
-DD_API_KEY=<your-api-key> DD_SITE="datadoghq.com" bash -c "$(curl -L https://install.datadoghq.com/scripts/install_script_agent7.sh)"
+```
+# 2. Buat Knowledge Base di AWS Console:
+#    - Buka: Bedrock Console → Knowledge Bases → Create
+#    - Name: incident-agent-kb
+#    - IAM Role: incident-agent-bedrock-kb-role
+#    - Data Source: S3 → pilih bucket dari output terraform
+#    - Embedding Model: Titan Embedding V2
+#    - Vector Store: Quick create (OpenSearch Serverless)
+#    - Klik Create → Sync data source
+#    - Catat KNOWLEDGE_BASE_ID
 ```
 
-#### 6c. Configure service tags di Datadog
-Pastikan services yang di-monitor di Datadog punya tag `service:<service_name>` yang match dengan nama service di incident ticket (e.g. `service:payment-service`, `service:api-gateway`).
+---
+
+### Phase 3: Setup Datadog
+
+```
+# 1. Get API Keys dari Datadog Console:
+#    - Organization Settings → API Keys → Create/Copy
+#    - Organization Settings → Application Keys → Create/Copy
+
+# 2. (Optional) Pastikan services di Datadog punya tag:
+#    service:payment-service, service:api-gateway, etc.
+```
 
 ---
 
-### Step 7: SSH ke EC2 & Deploy Application
+### Phase 4: Deploy Application ke EC2
 
 ```bash
+# 1. SSH ke EC2
 ssh -i ~/path/to/your-key.pem ec2-user@<EC2_PUBLIC_IP>
-```
 
-```bash
-# Clone repo
+# 2. Clone repo
 git clone https://github.com/arlisaputro/incident-agent.git
 cd incident-agent
 
-# Install dependencies
+# 3. Install dependencies
 pip3 install -r requirements.txt
 
-# Set environment variables
+# 4. Set environment variables
+cat <<'EOF' >> ~/.bashrc
 export AWS_REGION=ap-southeast-1
-export BEDROCK_MODEL_ID=anthropic.nova-pro-20240229-v1:0
+export BEDROCK_MODEL_ID=amazon.nova-pro-v1:0
 export KNOWLEDGE_BASE_ID=<YOUR_KB_ID>
 export DD_API_KEY=<YOUR_DD_API_KEY>
 export DD_APP_KEY=<YOUR_DD_APP_KEY>
 export DD_SITE=datadoghq.com
 export DD_LLMOBS_APP_NAME=incident-agent
+EOF
+source ~/.bashrc
 
-# Run with Datadog tracing
+# 5. (Optional) Install Datadog Agent
+DD_API_KEY=$DD_API_KEY DD_SITE="datadoghq.com" bash -c "$(curl -L https://install.datadoghq.com/scripts/install_script_agent7.sh)"
+
+# 6. Run application
 ddtrace-run streamlit run app.py --server.port 8501 --server.address 0.0.0.0
-```
 
-> **Note:** Kalau mau run tanpa Datadog tracing (development), cukup:
-> ```bash
-> streamlit run app.py --server.port 8501 --server.address 0.0.0.0
-> ```
+# Atau tanpa Datadog tracing:
+# streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+
+# Untuk run di background:
+# nohup ddtrace-run streamlit run app.py --server.port 8501 --server.address 0.0.0.0 &
+```
 
 ---
 
-### Step 8: Akses Aplikasi
+### Phase 5: Verify & Test
 
-Buka browser:
 ```
+# 1. Buka browser
 http://<EC2_PUBLIC_IP>:8501
+
+# 2. Buat test ticket:
+#    - Title: "API Gateway 5xx spike"
+#    - Severity: High
+#    - Service: api-gateway
+#    - Description: "Sudden increase in 500 errors, customers affected"
+
+# 3. Klik "🧠 Analyze with AI" → verify AI response muncul
+
+# 4. Check Datadog:
+#    - Buka Datadog Console → LLM Observability
+#    - Filter app: incident-agent
+#    - Verify trace: latency, tokens, prompt/response
 ```
-
-> Known issues database (`data/known_issues.db`) otomatis dibuat dan di-seed dengan sample data pada first run.
-
----
-
-### Step 9: Verify Datadog LLM Observability
-
-1. Buka **Datadog Console → LLM Observability**
-2. Filter by app: `incident-agent`
-3. Verify traces muncul setiap kali klik "Analyze with AI"
-4. Check: latency, token usage, prompt/response content, RAG spans
 
 ---
 
@@ -219,7 +218,7 @@ http://<EC2_PUBLIC_IP>:8501
 2. **Klik "🧠 Analyze with AI"** – Trigger full analysis pipeline
 3. **RAG Retrieval** – Query Bedrock KB (S3 runbooks) + SQLite (known issues)
 4. **Datadog MCP** – Query real-time: active alerts, CPU/error metrics, recent error logs
-5. **AI Analysis** – Amazon Nova Pro menganalisis dengan ALL context:
+5. **AI Analysis** – Nova Pro menganalisis dengan ALL context:
    - 🏷️ Classification (incident type + severity validation)
    - 🔍 Root Cause Analysis (correlate with known issues + Datadog alerts)
    - ✅ Recommendations (reference runbook steps)
@@ -264,7 +263,7 @@ http://<EC2_PUBLIC_IP>:8501
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `AWS_REGION` | ✅ | AWS region (default: ap-southeast-1) |
-| `BEDROCK_MODEL_ID` | ✅ | Bedrock model ID |
+| `BEDROCK_MODEL_ID` | ✅ | Bedrock model ID (default: amazon.nova-pro-v1:0) |
 | `KNOWLEDGE_BASE_ID` | ⚡ | Bedrock KB ID (RAG from S3 won't work without this) |
 | `DD_API_KEY` | ⚡ | Datadog API key |
 | `DD_APP_KEY` | ⚡ | Datadog Application key |
@@ -304,7 +303,7 @@ terraform destroy
 - [x] Streamlit UI (incident form + ticket list)
 - [x] SQLite ticket database
 - [x] SQLite known issues database (auto-seeded)
-- [x] Amazon Bedrock integration (Amazon Nova Pro)
+- [x] Amazon Bedrock integration (Nova Pro)
 - [x] RAG Layer (Bedrock Knowledge Base from S3)
 - [x] Sample knowledge base documents
 - [x] Terraform IaC (VPC, EC2, S3, IAM)
