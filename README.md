@@ -9,7 +9,7 @@ RAG-powered operational intelligence system dengan full LLM observability (produ
 ## 🏗️ Architecture
 
 ```
-User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
+User (Streamlit) → SQLite (local DB) → Amazon Bedrock (Claude 3 Sonnet)
                                               ↕
                               S3 (Runbooks/SOP) + DynamoDB (Known Issues)
                                               ↕
@@ -22,7 +22,7 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
 
 ### Layers:
 1. **User Layer** – Streamlit Web UI (incident form + ticket list + AI analysis)
-2. **Ticket Storage** – Amazon RDS PostgreSQL (production-grade DB)
+2. **Ticket Storage** – SQLite (lightweight, no external DB needed)
 3. **AI Layer** – Amazon Bedrock Claude 3 Sonnet (classification, RCA, recommendation)
 4. **RAG Layer** – Bedrock Knowledge Base (S3) + DynamoDB (known issues)
 5. **Observability Layer** – Datadog MCP (real-time context) + LLM Obs (tracing)
@@ -34,13 +34,14 @@ User (Streamlit) → PostgreSQL (RDS) → Amazon Bedrock (Claude 3 Sonnet)
 ```
 .
 ├── app.py                          # Streamlit UI + AI analyze button
-├── database.py                     # PostgreSQL helper (psycopg2)
+├── database.py                     # SQLite helper
 ├── bedrock_agent.py                # Bedrock Claude 3 + RAG + Datadog MCP context
 ├── knowledge_base.py               # RAG retrieval (Bedrock KB + DynamoDB)
 ├── observability.py                # ddtrace LLM Observability (traces, spans)
 ├── requirements.txt                # Python dependencies
 ├── architecture-diagram.drawio     # Draw.io architecture diagram
 ├── detailsolution.txt              # Architecture detail (Mermaid)
+├── DEMO_SCRIPT.md                  # 3-minute pitch script
 ├── mcp/                            # Datadog MCP integration
 │   ├── __init__.py
 │   └── datadog_client.py           # Query Datadog API (monitors, metrics, logs)
@@ -94,8 +95,6 @@ my_ip         = "103.x.x.x/32"      # hasil dari curl ifconfig.me
 ami_id        = "ami-0672fd5b9210aa093"
 instance_type = "t3.small"
 key_pair_name = "your-key-pair-name"
-db_username   = "incident_admin"
-db_password   = "YourSecurePassword123!"
 ```
 
 ---
@@ -112,7 +111,6 @@ Setelah selesai, catat output:
 - `ec2_public_ip` – IP untuk SSH & akses app
 - `s3_bucket_name` – bucket untuk upload runbooks
 - `dynamodb_table_name` – table known issues
-- `rds_endpoint` – PostgreSQL endpoint
 - `streamlit_url` – URL akses Streamlit
 - `bedrock_kb_role_arn` – IAM role untuk Bedrock Knowledge Base
 
@@ -196,11 +194,6 @@ cd incident-agent
 pip3 install -r requirements.txt
 
 # Set environment variables
-export DB_HOST=<RDS_ENDPOINT>
-export DB_PORT=5432
-export DB_NAME=incident_agent
-export DB_USER=incident_admin
-export DB_PASSWORD=YourSecurePassword123!
 export AWS_REGION=ap-southeast-1
 export BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
 export KNOWLEDGE_BASE_ID=<YOUR_KB_ID>
@@ -258,11 +251,9 @@ http://<EC2_PUBLIC_IP>:8501
 
 | Resource | Purpose |
 |----------|---------|
-| VPC + Public/Private Subnets | Networking (multi-AZ) |
-| Security Group (App) | SSH (22) + Streamlit (8501) restricted to your IP |
-| Security Group (RDS) | PostgreSQL (5432) only from app SG |
-| EC2 (t3.small) | App server |
-| RDS PostgreSQL (db.t3.micro) | Ticket database |
+| VPC + Public Subnet | Networking |
+| Security Group | SSH (22) + Streamlit (8501) restricted to your IP |
+| EC2 (t3.small) | App server (SQLite runs locally on EC2) |
 | IAM Role (EC2) | Bedrock + S3 + DynamoDB access |
 | IAM Role (Bedrock KB) | S3 read access for knowledge base |
 | S3 Bucket | Knowledge base documents (runbooks, SOP, RCA) |
@@ -292,11 +283,6 @@ http://<EC2_PUBLIC_IP>:8501
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DB_HOST` | ✅ | RDS PostgreSQL endpoint |
-| `DB_PORT` | ✅ | PostgreSQL port (default: 5432) |
-| `DB_NAME` | ✅ | Database name (default: incident_agent) |
-| `DB_USER` | ✅ | Database username |
-| `DB_PASSWORD` | ✅ | Database password |
 | `AWS_REGION` | ✅ | AWS region (default: ap-southeast-1) |
 | `BEDROCK_MODEL_ID` | ✅ | Bedrock model ID |
 | `KNOWLEDGE_BASE_ID` | ⚡ | Bedrock KB ID (RAG won't work without this) |
@@ -310,19 +296,14 @@ http://<EC2_PUBLIC_IP>:8501
 
 ---
 
-## 💻 Local Development (tanpa AWS)
+## 💻 Local Development
 
 ```bash
 pip install -r requirements.txt
-
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_NAME=incident_agent
-export DB_USER=postgres
-export DB_PASSWORD=password
-
 streamlit run app.py
 ```
+
+Akses di `http://localhost:8501`
 
 > AI analysis dan Datadog features akan fallback gracefully kalau credentials tidak ada.
 
@@ -340,14 +321,14 @@ terraform destroy
 ## 📌 Feature Checklist
 
 - [x] Streamlit UI (incident form + ticket list)
-- [x] PostgreSQL database (RDS)
+- [x] SQLite ticket database
 - [x] Amazon Bedrock integration (Claude 3 Sonnet)
 - [x] RAG Layer (Bedrock Knowledge Base + DynamoDB)
 - [x] Sample knowledge base documents
 - [x] Terraform IaC (all infrastructure)
 - [x] Datadog LLM Observability (ddtrace)
 - [x] Datadog MCP (real-time monitors/metrics/logs context)
-- [ ] Demo script (3 min pitch)
+- [x] Demo script (3 min pitch)
 
 ---
 

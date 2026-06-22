@@ -1,74 +1,54 @@
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import sqlite3
 from datetime import datetime
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "incident_agent")
-DB_USER = os.getenv("DB_USER", "incident_admin")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+DB_PATH = "tickets.db"
 
 
 def get_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-    )
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_db():
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS incidents (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             severity TEXT NOT NULL,
             service_affected TEXT NOT NULL,
             description TEXT NOT NULL,
             status TEXT DEFAULT 'Open',
-            created_at TIMESTAMP NOT NULL
+            created_at TEXT NOT NULL
         )
     """)
     conn.commit()
-    cur.close()
     conn.close()
 
 
 def create_ticket(title, severity, service_affected, description):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO incidents (title, severity, service_affected, description, created_at) VALUES (%s, %s, %s, %s, %s)",
-        (title, severity, service_affected, description, datetime.now()),
+    conn.execute(
+        "INSERT INTO incidents (title, severity, service_affected, description, created_at) VALUES (?, ?, ?, ?, ?)",
+        (title, severity, service_affected, description, datetime.now().isoformat()),
     )
     conn.commit()
-    cur.close()
     conn.close()
 
 
 def get_all_tickets():
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM incidents ORDER BY created_at DESC")
-    rows = cur.fetchall()
-    cur.close()
+    rows = conn.execute("SELECT * FROM incidents ORDER BY created_at DESC").fetchall()
     conn.close()
-    return rows
+    return [dict(row) for row in rows]
 
 
 def get_ticket_by_id(ticket_id):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM incidents WHERE id = %s", (ticket_id,))
-    row = cur.fetchone()
-    cur.close()
+    row = conn.execute("SELECT * FROM incidents WHERE id = ?", (ticket_id,)).fetchone()
     conn.close()
-    return row
+    return dict(row) if row else None
 
 
 init_db()

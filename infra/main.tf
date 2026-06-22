@@ -38,21 +38,6 @@ resource "aws_subnet" "public" {
   tags = { Name = "${var.project_name}-public-subnet" }
 }
 
-resource "aws_subnet" "private_a" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = { Name = "${var.project_name}-private-subnet-a" }
-}
-
-resource "aws_subnet" "private_b" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "${var.aws_region}b"
-
-  tags = { Name = "${var.project_name}-private-subnet-b" }
-}
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -104,31 +89,6 @@ resource "aws_security_group" "app" {
   tags = { Name = "${var.project_name}-app-sg" }
 }
 
-# ========================
-# SECURITY GROUP (RDS)
-# ========================
-resource "aws_security_group" "rds" {
-  name        = "${var.project_name}-rds-sg"
-  description = "Allow PostgreSQL access from app server"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description     = "PostgreSQL from app"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = { Name = "${var.project_name}-rds-sg" }
-}
 
 # ========================
 # IAM ROLE FOR EC2 (Bedrock + S3 + DynamoDB access)
@@ -208,7 +168,7 @@ resource "aws_instance" "app" {
     #!/bin/bash
     yum update -y
     yum install -y python3 python3-pip git
-    pip3 install streamlit boto3 ddtrace psycopg2-binary
+    pip3 install streamlit boto3 ddtrace requests
     echo "Setup complete" > /tmp/setup_done.txt
   EOF
 
@@ -316,33 +276,6 @@ resource "aws_iam_role_policy" "bedrock_kb_policy" {
   })
 }
 
-# ========================
-# RDS POSTGRESQL
-# ========================
-resource "aws_db_subnet_group" "main" {
-  name       = "${var.project_name}-db-subnet-group"
-  subnet_ids = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-
-  tags = { Name = "${var.project_name}-db-subnet-group" }
-}
-
-resource "aws_db_instance" "postgres" {
-  identifier             = "${var.project_name}-db"
-  engine                 = "postgres"
-  engine_version         = "15.4"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 20
-  storage_type           = "gp3"
-  db_name                = "incident_agent"
-  username               = var.db_username
-  password               = var.db_password
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  skip_final_snapshot    = true
-  publicly_accessible    = false
-
-  tags = { Name = "${var.project_name}-postgres" }
-}
 
 # ========================
 # RANDOM SUFFIX (for unique S3 bucket name)

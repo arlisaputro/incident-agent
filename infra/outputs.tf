@@ -23,16 +23,6 @@ output "streamlit_url" {
   value       = "http://${aws_instance.app.public_ip}:8501"
 }
 
-output "rds_endpoint" {
-  description = "RDS PostgreSQL endpoint"
-  value       = aws_db_instance.postgres.endpoint
-}
-
-output "rds_db_name" {
-  description = "RDS database name"
-  value       = aws_db_instance.postgres.db_name
-}
-
 output "bedrock_kb_role_arn" {
   description = "IAM Role ARN for Bedrock Knowledge Base"
   value       = aws_iam_role.bedrock_kb_role.arn
