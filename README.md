@@ -226,6 +226,50 @@ http://<EC2_PUBLIC_IP>:8501
    - 📊 Observability Insights (signal summary + monitoring suggestions)
 6. **Trace** – Full pipeline trace dikirim ke Datadog LLM Observability
 
+### Sample Test Cases
+
+Gunakan contoh input berikut untuk testing/demo:
+
+#### Test Case 1: Payment Timeout
+| Field | Value |
+|-------|-------|
+| Title | Payment service timeout during checkout |
+| Severity | Critical |
+| Service | payment-service |
+| Description | Multiple customers reporting HTTP 504 timeout when completing payment. Transaction success rate dropped from 99.5% to 72% in the last 15 minutes. Error logs show "connection pool exhausted" messages. Peak traffic period (lunch hour). |
+
+#### Test Case 2: API Gateway 5xx Spike
+| Field | Value |
+|-------|-------|
+| Title | API Gateway returning 502 Bad Gateway |
+| Severity | High |
+| Service | api-gateway |
+| Description | 502 errors spiked to 15% after deployment v2.4.0 rolled out 30 minutes ago. Latency P99 increased from 180ms to 2.5s. Backend health checks intermittently failing. Memory usage on gateway pods showing steady increase. |
+
+#### Test Case 3: Redis Cache Failure
+| Field | Value |
+|-------|-------|
+| Title | Redis OOM causing high latency across services |
+| Severity | High |
+| Service | redis-cache |
+| Description | Redis cluster reporting OOM errors. Cache hit rate dropped from 95% to 20%. All downstream services experiencing 3-5x latency increase. Memory usage at 100%, eviction policy not configured. Last restart was 3 weeks ago. |
+
+#### Test Case 4: Database Slow Queries
+| Field | Value |
+|-------|-------|
+| Title | Database queries timing out on order history |
+| Severity | Medium |
+| Service | database |
+| Description | Order history page taking 30+ seconds to load. PostgreSQL showing queries on orders table doing sequential scan. Table has 50M rows. Query: SELECT * FROM orders WHERE created_at > now() - interval '30 days' ORDER BY created_at DESC. No index on created_at column. |
+
+#### Test Case 5: Login Failures
+| Field | Value |
+|-------|-------|
+| Title | Mass login failures reported by customers |
+| Severity | Critical |
+| Service | user-service |
+| Description | 500+ customers unable to login in the last 10 minutes. Auth0 returning 429 rate limit errors. Security team detected brute force attempts from 50+ IPs targeting multiple accounts. Legitimate users blocked due to shared rate limit bucket. |
+
 ---
 
 ## 🔧 Infrastructure (Terraform)
