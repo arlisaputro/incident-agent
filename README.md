@@ -353,4 +353,4 @@ terraform destroy
 
 ## 👥 Team
 
-Hackathon 2025 – AWS x Datadog
+IpCoE
