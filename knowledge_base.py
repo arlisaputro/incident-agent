@@ -1,14 +1,11 @@
 import os
-import json
 import boto3
-from boto3.dynamodb.conditions import Key
+from known_issues_db import get_known_issues_by_service
 
 BEDROCK_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 KNOWLEDGE_BASE_ID = os.getenv("KNOWLEDGE_BASE_ID", "")
-DYNAMODB_TABLE = os.getenv("DYNAMODB_TABLE", "incident-agent-known-issues")
 
 bedrock_agent_client = boto3.client("bedrock-agent-runtime", region_name=BEDROCK_REGION)
-dynamodb = boto3.resource("dynamodb", region_name=BEDROCK_REGION)
 
 
 def retrieve_from_knowledge_base(query, max_results=3):
@@ -42,35 +39,22 @@ def retrieve_from_knowledge_base(query, max_results=3):
 
 
 def retrieve_known_issues(service_name):
-    """Retrieve known issues from DynamoDB for a specific service."""
+    """Retrieve known issues from local SQLite database."""
     try:
-        table = dynamodb.Table(DYNAMODB_TABLE)
-        response = table.query(
-            IndexName="service-index",
-            KeyConditionExpression=Key("service_name").eq(service_name),
-        )
-        return response.get("Items", [])
-    except Exception:
-        # Fallback: scan with filter if GSI doesn't exist
-        try:
-            table = dynamodb.Table(DYNAMODB_TABLE)
-            response = table.scan(
-                FilterExpression=Key("service_name").eq(service_name),
-            )
-            return response.get("Items", [])
-        except Exception as e:
-            print(f"DynamoDB retrieval error: {e}")
-            return []
+        return get_known_issues_by_service(service_name)
+    except Exception as e:
+        print(f"Known issues retrieval error: {e}")
+        return []
 
 
 def build_rag_context(title, service_affected, description):
-    """Build RAG context by combining KB retrieval + DynamoDB known issues."""
+    """Build RAG context by combining KB retrieval + known issues (SQLite)."""
     query = f"{title} {service_affected} {description}"
 
     # Retrieve from Bedrock Knowledge Base (S3 docs)
     kb_results = retrieve_from_knowledge_base(query)
 
-    # Retrieve known issues from DynamoDB
+    # Retrieve known issues from SQLite
     known_issues = retrieve_known_issues(service_affected)
 
     # Build context string

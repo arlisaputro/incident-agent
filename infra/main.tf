@@ -91,7 +91,7 @@ resource "aws_security_group" "app" {
 
 
 # ========================
-# IAM ROLE FOR EC2 (Bedrock + S3 + DynamoDB access)
+# IAM ROLE FOR EC2 (Bedrock + S3 access)
 # ========================
 resource "aws_iam_role" "ec2_role" {
   name = "${var.project_name}-ec2-role"
@@ -133,16 +133,6 @@ resource "aws_iam_role_policy" "ec2_policy" {
           aws_s3_bucket.knowledge.arn,
           "${aws_s3_bucket.knowledge.arn}/*"
         ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan",
-          "dynamodb:PutItem"
-        ]
-        Resource = aws_dynamodb_table.known_issues.arn
       }
     ]
   })
@@ -203,33 +193,6 @@ resource "aws_s3_bucket_public_access_block" "knowledge" {
   restrict_public_buckets = true
 }
 
-# ========================
-# DYNAMODB TABLE (Known Issues / Problem DB)
-# ========================
-resource "aws_dynamodb_table" "known_issues" {
-  name         = "${var.project_name}-known-issues"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "issue_id"
-  range_key    = "service_name"
-
-  attribute {
-    name = "issue_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "service_name"
-    type = "S"
-  }
-
-  global_secondary_index {
-    name            = "service-index"
-    hash_key        = "service_name"
-    projection_type = "ALL"
-  }
-
-  tags = { Name = "${var.project_name}-known-issues" }
-}
 
 # ========================
 # IAM ROLE FOR BEDROCK KNOWLEDGE BASE

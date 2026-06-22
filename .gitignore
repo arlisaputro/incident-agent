@@ -7,6 +7,7 @@ venv/
 
 # SQLite
 *.db
+data/*.db
 
 # Terraform
 infra/.terraform/
