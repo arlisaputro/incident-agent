@@ -71,7 +71,7 @@
 ### [2:30 – 2:50] Architecture & Tech Stack
 
 > "Tech stack-nya:
-> - **Amazon Bedrock** (Claude 3 Sonnet) — reasoning engine
+> - **Amazon Bedrock** (Amazon Nova Pro) — reasoning engine
 > - **Bedrock Knowledge Base** — RAG dari S3 runbooks
 > - **DynamoDB** — known issues database
 > - **Datadog MCP** — real-time observability context

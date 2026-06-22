@@ -9,7 +9,7 @@ RAG-powered operational intelligence system dengan full LLM observability (produ
 ## 🏗️ Architecture
 
 ```
-User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Claude 3 Sonnet)
+User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Amazon Nova Pro)
                                                 ↕
                                 S3 (Runbooks/SOP) via Bedrock Knowledge Base
                                                 ↕
@@ -23,7 +23,7 @@ User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Claude 3 Sonnet)
 ### Layers:
 1. **User Layer** – Streamlit Web UI (incident form + ticket list + AI analysis)
 2. **Ticket Storage** – SQLite `tickets.db` (incident tickets)
-3. **AI Layer** – Amazon Bedrock Claude 3 Sonnet (classification, RCA, recommendation)
+3. **AI Layer** – Amazon Bedrock Amazon Nova Pro (classification, RCA, recommendation)
 4. **RAG Layer** – Bedrock Knowledge Base (S3) + SQLite `data/known_issues.db` (known issues)
 5. **Observability Layer** – Datadog MCP (real-time context) + LLM Obs (tracing)
 
@@ -69,7 +69,7 @@ User (Streamlit) → SQLite (tickets.db) → Amazon Bedrock (Claude 3 Sonnet)
 - Terraform >= 1.5.0 installed
 - EC2 Key Pair sudah dibuat di AWS Console (region ap-southeast-1)
 - Public IP kamu (jalankan: `curl ifconfig.me`)
-- Bedrock model access enabled (Claude 3 Sonnet) di AWS Console
+- Bedrock model access enabled (Amazon Nova Pro) di AWS Console
 - Datadog account + API Key + Application Key
 
 ---
@@ -175,7 +175,7 @@ pip3 install -r requirements.txt
 
 # Set environment variables
 export AWS_REGION=ap-southeast-1
-export BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+export BEDROCK_MODEL_ID=anthropic.nova-pro-20240229-v1:0
 export KNOWLEDGE_BASE_ID=<YOUR_KB_ID>
 export DD_API_KEY=<YOUR_DD_API_KEY>
 export DD_APP_KEY=<YOUR_DD_APP_KEY>
@@ -219,7 +219,7 @@ http://<EC2_PUBLIC_IP>:8501
 2. **Klik "🧠 Analyze with AI"** – Trigger full analysis pipeline
 3. **RAG Retrieval** – Query Bedrock KB (S3 runbooks) + SQLite (known issues)
 4. **Datadog MCP** – Query real-time: active alerts, CPU/error metrics, recent error logs
-5. **AI Analysis** – Claude 3 Sonnet menganalisis dengan ALL context:
+5. **AI Analysis** – Amazon Nova Pro menganalisis dengan ALL context:
    - 🏷️ Classification (incident type + severity validation)
    - 🔍 Root Cause Analysis (correlate with known issues + Datadog alerts)
    - ✅ Recommendations (reference runbook steps)
@@ -304,7 +304,7 @@ terraform destroy
 - [x] Streamlit UI (incident form + ticket list)
 - [x] SQLite ticket database
 - [x] SQLite known issues database (auto-seeded)
-- [x] Amazon Bedrock integration (Claude 3 Sonnet)
+- [x] Amazon Bedrock integration (Amazon Nova Pro)
 - [x] RAG Layer (Bedrock Knowledge Base from S3)
 - [x] Sample knowledge base documents
 - [x] Terraform IaC (VPC, EC2, S3, IAM)

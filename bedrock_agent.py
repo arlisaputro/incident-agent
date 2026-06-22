@@ -6,7 +6,7 @@ from mcp import build_datadog_context
 from observability import trace_llm_call, trace_rag_retrieval, trace_datadog_mcp
 
 BEDROCK_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
-MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
 
 bedrock_client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
 
@@ -99,12 +99,14 @@ Provide your analysis in the following format:
 """
 
     body = json.dumps({
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 1500,
-        "system": SYSTEM_PROMPT,
         "messages": [
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": [{"text": user_prompt}]}
         ],
+        "system": [{"text": SYSTEM_PROMPT}],
+        "inferenceConfig": {
+            "maxTokens": 1500,
+            "temperature": 0.7,
+        },
     })
 
     response = bedrock_client.invoke_model(
@@ -115,4 +117,4 @@ Provide your analysis in the following format:
     )
 
     result = json.loads(response["body"].read())
-    return result["content"][0]["text"]
+    return result["output"]["message"]["content"][0]["text"]
