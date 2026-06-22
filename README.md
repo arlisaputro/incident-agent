@@ -285,7 +285,8 @@ streamlit run app.py
 Akses di `http://localhost:8501`
 
 > - `tickets.db` auto-created di root directory
-> - `data/known_issues.db` auto-created & seeded dengan sample data
+> - `data/known_issues.db` auto-created & seeded dengan 15 sample known issues
+>   - Services: `payment-service`, `api-gateway`, `database`, `redis-cache`, `user-service`, `notification-service`, `infrastructure`, `order-service`
 > - AI analysis dan Datadog features akan fallback gracefully kalau credentials tidak ada
 
 ---
