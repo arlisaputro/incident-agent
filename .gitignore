@@ -19,6 +19,10 @@ infra/terraform.tfvars
 # Secrets & Keys
 *.pem
 infra/terraform.tfvars
+*.log
+
+# Sensitive deployment info
+DEPLOYMENT_CONTEXT_REAL.md
 
 # Old/backup files
 *_fixed.py
