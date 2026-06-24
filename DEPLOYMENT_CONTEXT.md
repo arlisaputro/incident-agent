@@ -3,25 +3,25 @@
 ## Project Overview
 - **Project Path:** ~/Documents/hackaton
 - **App:** Incident Intelligence Agent (Streamlit + AWS Bedrock + Datadog LLM Observability)
-- **AWS Account:** 058914805579, user: participant
+- **AWS Account:** <AWS_ACCOUNT_ID>, user: <AWS_USER>
 - **Region:** ap-southeast-1
 
 ## Permissions
 - EC2 ✅, S3 ✅, VPC ✅, Bedrock ✅, IAM ❌
 
 ## Infrastructure (Terraform - infra/)
-- **EC2 IP:** 54.179.171.169
+- **EC2 IP:** <EC2_PUBLIC_IP>
 - **Instance:** t3.small, Ubuntu 24.04
-- **S3 Bucket:** incident-agent-knowledge-base-6ca579d6
-- **Key Pair:** incident-agent-key (PEM di ~/.ssh/incident-agent-key.pem)
+- **S3 Bucket:** <S3_BUCKET_NAME>
+- **Key Pair:** <KEY_PAIR_NAME> (PEM di ~/.ssh/<KEY_PAIR_NAME>.pem)
 - **SSH User:** ubuntu
 - **VPC:** 10.0.0.0/16, Public Subnet 10.0.1.0/24
-- **EC2 Instance ID:** i-0cff32b8ab809025a
+- **EC2 Instance ID:** <EC2_INSTANCE_ID>
 
 ## Access URLs
-- **App:** https://54.179.171.169 (port 443, self-signed cert)
-- **Doc Preview:** https://54.179.171.169/?doc=docs/FILENAME.md
-- **Dashboard:** https://app.datadoghq.com/dashboard/k8i-7tt-mcc/
+- **App:** https://<EC2_PUBLIC_IP> (port 443, self-signed cert)
+- **Doc Preview:** https://<EC2_PUBLIC_IP>/?doc=docs/FILENAME.md
+- **Dashboard:** https://app.datadoghq.com/dashboard/<DASHBOARD_ID>/
 - **LLM Obs Traces:** https://app.datadoghq.com/llm/traces (filter: ml_app:incident-agent)
 - **Monitors:** https://app.datadoghq.com/monitors/manage (filter: service:incident-agent)
 
@@ -29,8 +29,8 @@
 ```
 AWS_REGION=ap-southeast-1
 BEDROCK_MODEL_ID=apac.amazon.nova-pro-v1:0
-DD_API_KEY=62290c5f5f42b43bbe4c57f967fdf89b
-DD_APP_KEY=ddapp_cRdtB6dsBxExrkdxjpUvNqPbI7fF0fpOpR
+DD_API_KEY=<DD_API_KEY>
+DD_APP_KEY=<DD_APP_KEY>
 DD_SITE=datadoghq.com
 DD_SERVICE=incident-agent
 DD_LLMOBS_ML_APP=incident-agent
@@ -39,14 +39,14 @@ DD_LLMOBS_AGENTLESS_ENABLED=1
 
 ## How to Start Streamlit (if need restart)
 ```bash
-ssh -i ~/.ssh/incident-agent-key.pem ubuntu@54.179.171.169
+ssh -i ~/.ssh/<KEY_PAIR_NAME>.pem ubuntu@<EC2_PUBLIC_IP>
 
 sudo fuser -k 443/tcp 2>/dev/null; sleep 2
 cd /home/ubuntu && source ~/venv/bin/activate
 export AWS_REGION=ap-southeast-1
 export BEDROCK_MODEL_ID=apac.amazon.nova-pro-v1:0
-export DD_API_KEY=62290c5f5f42b43bbe4c57f967fdf89b
-export DD_APP_KEY=ddapp_cRdtB6dsBxExrkdxjpUvNqPbI7fF0fpOpR
+export DD_API_KEY=<DD_API_KEY>
+export DD_APP_KEY=<DD_APP_KEY>
 export DD_SITE=datadoghq.com
 export DD_SERVICE=incident-agent
 export DD_LLMOBS_ML_APP=incident-agent
@@ -100,10 +100,10 @@ User submit ticket → Streamlit UI
 | MCP Client → Monitors | ✅ Alert/Warn only |
 | MCP Client → Metrics | ✅ CPU/memory/disk (host-based) |
 | MCP Client → Logs | ⛔ DD plan doesn't include Logs |
-| Custom Dashboard | ✅ id: k8i-7tt-mcc (3 sections) |
+| Custom Dashboard | ✅ id: <DASHBOARD_ID> (3 sections) |
 | Monitors (3) | ✅ Disk >85%, CPU >80%, Memory >85% |
 
-## Dashboard Panels (k8i-7tt-mcc) — 3 Sections
+## Dashboard Panels (<DASHBOARD_ID>) — 3 Sections
 
 ### 🤖 LLM Performance (12 panels)
 1. Total LLM Requests (Bedrock)
@@ -159,7 +159,7 @@ User submit ticket → Streamlit UI
 - Memory Usage High on EC2 incident-agent (warn 70%, critical 85%)
 
 ## Network Notes
-- SSH port 22 works dari network kantor (IPv4: 125.161.118.94)
+- SSH port 22 works dari network kantor (IPv4: <YOUR_PUBLIC_IP>)
 - Port 443 untuk HTTPS app access
 - Hotspot HP → SSH sering ke-block (too many connections / IPv6)
 - Kalau SSH blocked, switch ke network kantor
