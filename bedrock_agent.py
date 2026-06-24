@@ -6,7 +6,7 @@ from mcp import build_datadog_context
 from observability import trace_llm_call, trace_rag_retrieval, trace_datadog_mcp
 
 BEDROCK_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
-MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
+MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "apac.amazon.nova-pro-v1:0")
 
 bedrock_client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
 
@@ -68,6 +68,9 @@ def analyze_incident(title, severity, service_affected, description):
     if context_section:
         context_section += "\n---\n"
 
+    # Store context for hallucination check (used by observability decorator)
+    analyze_incident._last_context = context_section
+
     user_prompt = f"""Analyze this incident ticket:
 
 **Title:** {title}
@@ -91,11 +94,16 @@ Provide your analysis in the following format:
 ## ✅ Recommendations
 - Immediate actions (to resolve now)
 - Preventive actions (to avoid recurrence)
-- Reference specific runbook steps if available from context
 
-## 📊 Observability Insights
+## 📊 Datadog - Observability Insights
 - Summarize relevant signals from Datadog (if available)
 - Suggest additional monitoring/alerting to add
+
+## 📖 Referenced Runbooks
+- ALWAYS list which documents from the Knowledge Base context were used in your analysis
+- Format each as a clickable markdown link: [Document Name](https://54.179.171.169/?doc=docs/FILENAME.md) — brief summary of relevant section
+- The FILENAME must match exactly from the document source shown in the context (e.g. sop-incident-management.md, runbook-api-gateway.md, runbook-payment-service.md, runbook-database-infrastructure.md)
+- If no documents were provided in context, state "No runbooks available for this service"
 """
 
     body = json.dumps({
@@ -117,4 +125,20 @@ Provide your analysis in the following format:
     )
 
     result = json.loads(response["body"].read())
+
+    # Extract token usage and submit as custom metric to Datadog
+    usage = result.get("usage", {})
+    input_tokens = usage.get("inputTokens", 0)
+    output_tokens = usage.get("outputTokens", 0)
+    total_tokens = input_tokens + output_tokens
+
+    try:
+        from datadog import statsd
+        statsd.gauge("bedrock.tokens.input", input_tokens, tags=["service:incident-agent", f"model:{MODEL_ID}"])
+        statsd.gauge("bedrock.tokens.output", output_tokens, tags=["service:incident-agent", f"model:{MODEL_ID}"])
+        statsd.gauge("bedrock.tokens.total", total_tokens, tags=["service:incident-agent", f"model:{MODEL_ID}"])
+        statsd.increment("bedrock.requests.count", tags=["service:incident-agent", f"model:{MODEL_ID}"])
+    except Exception:
+        pass
+
     return result["output"]["message"]["content"][0]["text"]

@@ -1,10 +1,26 @@
 import streamlit as st
 from database import create_ticket, get_all_tickets
 from bedrock_agent import analyze_incident
+from knowledge_base import s3_client, S3_BUCKET
 
 st.set_page_config(page_title="Incident Intelligence Agent", page_icon="🚨", layout="wide")
 st.title("🚨 Incident Intelligence Agent")
 st.caption("AI-powered Incident Copilot – AWS x Datadog")
+
+# --- Doc Preview Page (via query param) ---
+query_params = st.query_params
+if "doc" in query_params:
+    doc_key = query_params["doc"]
+    doc_name = doc_key.replace("docs/", "").replace(".md", "").replace("-", " ").title()
+    st.header(f"📖 {doc_name}")
+    st.caption(f"Source: s3://{S3_BUCKET}/{doc_key}")
+    try:
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=doc_key)
+        content = response["Body"].read().decode("utf-8")
+        st.markdown(content)
+    except Exception as e:
+        st.error(f"Failed to load document: {e}")
+    st.stop()
 
 # --- Form Input ---
 st.header("📝 Create Incident Ticket")
@@ -39,7 +55,6 @@ else:
             st.text(f"ID: {t['id']}  |  Status: {t['status']}  |  Created: {t['created_at']}")
             st.markdown(f"**Description:**\n\n{t['description']}")
 
-            # AI Analysis Button
             if st.button(f"🧠 Analyze with AI", key=f"analyze_{t['id']}"):
                 with st.spinner("Analyzing incident with Amazon Bedrock..."):
                     try:

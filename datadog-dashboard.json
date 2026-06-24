@@ -1,0 +1,546 @@
+{
+  "title": "\ud83e\udde0 Incident Intelligence Agent - LLM Observability",
+  "description": "LLM performance, RAG retrieval, and operational metrics",
+  "layout_type": "ordered",
+  "widgets": [
+    {
+      "definition": {
+        "title": "\ud83e\udd16 LLM Performance",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Total LLM Requests (Bedrock)",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent resource_name:InvokeModel"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": []
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "Avg LLM Latency",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent resource_name:InvokeModel"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "avg",
+                        "metric": "@duration"
+                      },
+                      "group_by": []
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 2,
+              "autoscale": true
+            }
+          },
+          {
+            "definition": {
+              "title": "LLM Errors",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent resource_name:InvokeModel status:error"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": []
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "Total Spans",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": []
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83e\ude99 Avg Input Tokens",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:bedrock.tokens.input{service:incident-agent}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83e\ude99 Avg Output Tokens",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:bedrock.tokens.output{service:incident-agent}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83e\ude99 Total Tokens Used",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:bedrock.tokens.total{service:incident-agent}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83e\ude99 Token Usage Over Time",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "input_tokens",
+                      "query": "avg:bedrock.tokens.input{service:incident-agent}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "output_tokens",
+                      "query": "avg:bedrock.tokens.output{service:incident-agent}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "input_tokens",
+                      "alias": "Input Tokens"
+                    },
+                    {
+                      "formula": "output_tokens",
+                      "alias": "Output Tokens"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "\u23f1\ufe0f Bedrock Latency Over Time",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent resource_name:InvokeModel"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "avg",
+                        "metric": "@duration"
+                      },
+                      "group_by": []
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83d\udcc8 Request Volume by Operation",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@resource_name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83e\udde0 Top Operations",
+              "type": "toplist",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "resource_name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83d\udd0d Latency by Operation",
+              "type": "toplist",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "spans",
+                      "name": "query1",
+                      "search": {
+                        "query": "service:incident-agent"
+                      },
+                      "indexes": [
+                        "*"
+                      ],
+                      "compute": {
+                        "aggregation": "avg",
+                        "metric": "@duration"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "resource_name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "avg",
+                            "metric": "@duration",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83e\udde0 Hallucination Monitoring",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "**Faithfulness Score Guide:**\n\n| Score | Risk | Meaning |\n|-------|------|--------|\n| 1.0 | \u2705 Low | AI output consistent with provided context |\n| 0.5 | \u26a0\ufe0f Medium | AI made some claims not fully backed by context |\n| 0.0 | \ud83d\udea8 High | AI hallucinated \u2014 output contradicts or fabricates data |\n\n**Checks:** fake percentages, phantom alerts, non-existent runbook references",
+              "background_color": "white",
+              "font_size": "14",
+              "text_align": "left",
+              "show_tick": false,
+              "tick_pos": "50%",
+              "tick_edge": "left"
+            }
+          },
+          {
+            "definition": {
+              "title": "Faithfulness Score (latest)",
+              "type": "query_value",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "avg:llm.hallucination.faithfulness{service:incident-agent}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ],
+              "precision": 1
+            }
+          },
+          {
+            "definition": {
+              "title": "\ud83d\udcc8 Faithfulness Over Time",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "faith",
+                      "query": "avg:llm.hallucination.faithfulness{service:incident-agent}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "faith",
+                      "alias": "Faithfulness Score (1.0=Safe, 0.0=Hallucinated)"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83d\udda5\ufe0f Infra Compute (EC2)",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "CPU Utilization (%)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.cpu.user{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "Memory Usage",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.mem.used{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "Disk Usage (%)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.disk.in_use{*} * 100"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "Network In/Out (bytes)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "net_in",
+                      "query": "avg:system.net.bytes_rcvd{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "net_out",
+                      "query": "avg:system.net.bytes_sent{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

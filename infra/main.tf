@@ -38,7 +38,6 @@ resource "aws_subnet" "public" {
   tags = { Name = "${var.project_name}-public-subnet" }
 }
 
-
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -76,7 +75,7 @@ resource "aws_security_group" "app" {
     from_port   = 8501
     to_port     = 8501
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -89,76 +88,54 @@ resource "aws_security_group" "app" {
   tags = { Name = "${var.project_name}-app-sg" }
 }
 
-
 # ========================
-# IAM ROLE FOR EC2 (Bedrock + S3 access)
-# ========================
-resource "aws_iam_role" "ec2_role" {
-  name = "${var.project_name}-ec2-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "ec2_policy" {
-  name = "${var.project_name}-ec2-policy"
-  role = aws_iam_role.ec2_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-          "bedrock:Retrieve",
-          "bedrock:RetrieveAndGenerate"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.knowledge.arn,
-          "${aws_s3_bucket.knowledge.arn}/*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "${var.project_name}-ec2-profile"
-  role = aws_iam_role.ec2_role.name
-}
-
-# ========================
-# EC2 INSTANCE
+# EC2 INSTANCE (no IAM role - use env credentials)
 # ========================
 resource "aws_instance" "app" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
   key_name               = var.key_pair_name
 
   user_data = <<-EOF
     #!/bin/bash
+    exec > /var/log/user-data.log 2>&1
     yum update -y
     yum install -y python3 python3-pip git
     pip3 install streamlit boto3 ddtrace requests
+
+    # Clone and setup app
+    cd /home/ec2-user
+    git clone https://github.com/arlisaputro/incident-agent.git app || mkdir -p app
+    cd app
+
+    # AWS credentials (no IAM role available)
+    mkdir -p /home/ec2-user/.aws
+    cat <<'AWSCFG' > /home/ec2-user/.aws/credentials
+    [default]
+    aws_access_key_id = PLACEHOLDER_ACCESS_KEY
+    aws_secret_access_key = PLACEHOLDER_SECRET_KEY
+    AWSCFG
+    cat <<'AWSCFG2' > /home/ec2-user/.aws/config
+    [default]
+    region = ap-southeast-1
+    output = json
+    AWSCFG2
+    chown -R ec2-user:ec2-user /home/ec2-user/.aws
+
+    # Environment variables
+    cat <<'ENVFILE' > /home/ec2-user/app.env
+    export AWS_REGION=ap-southeast-1
+    export BEDROCK_MODEL_ID=amazon.nova-pro-v1:0
+    export KNOWLEDGE_BASE_ID=
+    export DD_API_KEY=
+    export DD_APP_KEY=
+    export DD_SITE=datadoghq.com
+    export DD_LLMOBS_APP_NAME=incident-agent
+    ENVFILE
+    chown ec2-user:ec2-user /home/ec2-user/app.env
+
     echo "Setup complete" > /tmp/setup_done.txt
   EOF
 
@@ -166,7 +143,7 @@ resource "aws_instance" "app" {
 }
 
 # ========================
-# S3 BUCKET (Knowledge Base - Runbooks/SOP/RCA)
+# S3 BUCKET (Knowledge Base)
 # ========================
 resource "aws_s3_bucket" "knowledge" {
   bucket = "${var.project_name}-knowledge-base-${random_id.suffix.hex}"
@@ -193,55 +170,8 @@ resource "aws_s3_bucket_public_access_block" "knowledge" {
   restrict_public_buckets = true
 }
 
-
 # ========================
-# IAM ROLE FOR BEDROCK KNOWLEDGE BASE
-# ========================
-resource "aws_iam_role" "bedrock_kb_role" {
-  name = "${var.project_name}-bedrock-kb-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "bedrock.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "bedrock_kb_policy" {
-  name = "${var.project_name}-bedrock-kb-policy"
-  role = aws_iam_role.bedrock_kb_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.knowledge.arn,
-          "${aws_s3_bucket.knowledge.arn}/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-
-# ========================
-# RANDOM SUFFIX (for unique S3 bucket name)
+# RANDOM SUFFIX
 # ========================
 resource "random_id" "suffix" {
   byte_length = 4

@@ -16,5 +16,12 @@ infra/*.tfstate.backup
 infra/.terraform.lock.hcl
 infra/terraform.tfvars
 
+# Secrets & Keys
+*.pem
+infra/terraform.tfvars
+
+# Old/backup files
+*_fixed.py
+
 # OS
 .DS_Store

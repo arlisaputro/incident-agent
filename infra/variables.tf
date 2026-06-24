@@ -11,14 +11,14 @@ variable "project_name" {
 }
 
 variable "my_ip" {
-  description = "Your public IP for SSH/Streamlit access (CIDR format, e.g. 103.x.x.x/32)"
+  description = "Your public IP for SSH access (CIDR format, e.g. 103.x.x.x/32)"
   type        = string
 }
 
 variable "ami_id" {
   description = "AMI ID for EC2 (Amazon Linux 2023)"
   type        = string
-  default     = "ami-0672fd5b9210aa093" # Amazon Linux 2023 ap-southeast-1
+  default     = "ami-0672fd5b9210aa093"
 }
 
 variable "instance_type" {

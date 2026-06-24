@@ -20,8 +20,6 @@ def get_active_monitors(service_name=None):
     """Get active/triggered monitors from Datadog, optionally filtered by service."""
     url = f"{BASE_URL}/v1/monitor"
     params = {}
-    if service_name:
-        params["monitor_tags"] = f"service:{service_name}"
 
     try:
         response = requests.get(url, headers=HEADERS, params=params)
@@ -31,7 +29,7 @@ def get_active_monitors(service_name=None):
         # Filter only triggered/alert/warn monitors
         active = []
         for m in monitors:
-            if m.get("overall_state") in ["Alert", "Warn", "No Data"]:
+            if m.get("overall_state") in ["Alert", "Warn"]:
                 active.append({
                     "name": m.get("name"),
                     "state": m.get("overall_state"),
@@ -54,7 +52,7 @@ def get_recent_metrics(service_name, metric="aws.ec2.cpuutilization", minutes=30
     params = {
         "from": start,
         "to": now,
-        "query": f"avg:{metric}{{service:{service_name}}}",
+        "query": f"avg:{metric}{{*}}",
     }
 
     try:
@@ -97,10 +95,11 @@ def get_recent_logs(service_name, minutes=30, limit=5):
     body = {
         "filter": {
             "query": f"service:{service_name} status:error",
-            "from": start.isoformat() + "Z",
-            "to": now.isoformat() + "Z",
+            "from": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "to": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "indexes": ["*"],
         },
-        "sort": "-timestamp",
+        "sort": "timestamp",
         "page": {"limit": limit},
     }
 
@@ -119,7 +118,8 @@ def get_recent_logs(service_name, minutes=30, limit=5):
             })
         return logs
     except Exception as e:
-        print(f"Datadog logs error: {e}")
+        # Logs API not available in this DD plan - silently skip
+        pass
         return []
 
 
@@ -136,15 +136,19 @@ def build_datadog_context(service_name):
             if m['message']:
                 context_parts.append(f"  Message: {m['message']}")
 
-    # Recent metrics
-    cpu_metrics = get_recent_metrics(service_name, "aws.ec2.cpuutilization")
-    if cpu_metrics:
-        context_parts.append("\n## 📊 Recent Metrics (last 30 min)")
-        context_parts.append(f"- CPU: avg={cpu_metrics['avg']}%, max={cpu_metrics['max']}%, latest={cpu_metrics['latest']}%")
+    # Recent metrics (host-level from DD Agent)
+    cpu_metrics = get_recent_metrics(service_name, "system.cpu.user")
+    mem_metrics = get_recent_metrics(service_name, "system.mem.pct_usable")
+    disk_metrics = get_recent_metrics(service_name, "system.disk.in_use")
 
-    error_rate = get_recent_metrics(service_name, "trace.http.request.errors")
-    if error_rate:
-        context_parts.append(f"- Error Rate: avg={error_rate['avg']}, max={error_rate['max']}, latest={error_rate['latest']}")
+    if cpu_metrics or mem_metrics or disk_metrics:
+        context_parts.append("\n## 📊 Recent Metrics (last 30 min)")
+        if cpu_metrics:
+            context_parts.append(f"- CPU: avg={cpu_metrics['avg']}%, max={cpu_metrics['max']}%, latest={cpu_metrics['latest']}%")
+        if mem_metrics:
+            context_parts.append(f"- Memory Available: avg={cpu_metrics['avg']}%, latest={mem_metrics['latest']}%")
+        if disk_metrics:
+            context_parts.append(f"- Disk In Use: avg={disk_metrics['avg']}%, max={disk_metrics['max']}%, latest={disk_metrics['latest']}%")
 
     # Recent error logs
     logs = get_recent_logs(service_name)
